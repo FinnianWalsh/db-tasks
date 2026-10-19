@@ -1,9 +1,7 @@
 import sys
 
 from abc import ABC
-from typing import Dict, List, Optional, Tuple, TypedDict, TypeVar
-
-T = TypeVar("T")
+from typing import Dict, List, Optional, Tuple, TypedDict, Union, cast
 
 
 class DbObject(ABC):
@@ -13,9 +11,9 @@ class DbObject(ABC):
         for name, value in kwargs.items():
             setattr(self, name, value)
 
-    def __getitem__(self, name: str) -> T:
+    def __getitem__(self, name: str):
         assert hasattr(self, name), f"Attribute {name} does not exist"
-        return getattr(self, name)
+        return cast(object, getattr(self, name))
 
     def __setitem__(self, name: str, value: object):
         assert hasattr(self, name), f"Attribute {name} does not exist"
@@ -110,34 +108,46 @@ def mk_test(test_id: str, subject_name: str, test_date: str, max_score: int):
     }
 
 
-students = [
-    Student("S101", "Alex Chen", "12A"),
-    Student("S102", "Sam Taylor", "12B"),
-    Student("S103", "Maya Patel", "12A"),
-]
+students = cast(
+    List[StudentDict],
+    [
+        Student("S101", "Alex Chen", "12A"),
+        Student("S102", "Sam Taylor", "12B"),
+        Student("S103", "Maya Patel", "12A"),
+    ],
+)
 
-student_scores = [
-    StudentScore("S101", "T01", 42),
-    StudentScore("S101", "T02", 85),
-    StudentScore("S101", "T03", 54),
-    StudentScore("S102", "T01", 38),
-    StudentScore("S102", "T02", 72),
-    StudentScore("S103", "T03", 58),
-    StudentScore("S103", "T04", 31),
-]
+student_scores = cast(
+    List[StudentScoreDict],
+    [
+        StudentScore("S101", "T01", 42),
+        StudentScore("S101", "T02", 85),
+        StudentScore("S101", "T03", 54),
+        StudentScore("S102", "T01", 38),
+        StudentScore("S102", "T02", 72),
+        StudentScore("S103", "T03", 58),
+        StudentScore("S103", "T04", 31),
+    ],
+)
 
-subjects = [
-    Subject("Computer Science", "Mr. Smith"),
-    Subject("Mathematics", "Mrs. Jones"),
-    Subject("Physics", "Dr. Vance"),
-]
+subjects = cast(
+    List[SubjectDict],
+    [
+        Subject("Computer Science", "Mr. Smith"),
+        Subject("Mathematics", "Mrs. Jones"),
+        Subject("Physics", "Dr. Vance"),
+    ],
+)
 
-tests = [
-    Test("T01", "Computer Science", "15/10/2025", 50),
-    Test("T02", "Mathematics", "20/10/2025", 100),
-    Test("T03", "Computer Science", "05/11/2025", 60),
-    Test("T04", "Physics", "12/11/2025", 40),
-]
+tests = cast(
+    List[TestDict],
+    [
+        Test("T01", "Computer Science", "15/10/2025", 50),
+        Test("T02", "Mathematics", "20/10/2025", 100),
+        Test("T03", "Computer Science", "05/11/2025", 60),
+        Test("T04", "Physics", "12/11/2025", 40),
+    ],
+)
 
 TestResult = Tuple[str, int, int, str]
 
@@ -216,14 +226,16 @@ def get_test_average(test_id: str) -> Optional[float]:
     return round(total_score_obtained / num_taken / max_score * 100, 1)
 
 
-def get_student_id_from_name(student_name: str) -> Optional[str]:
+def get_student_id_from_name(student_name: str) -> str:
     for student in students:
         if student["student_name"] == student_name:
             return student["student_id"]
 
+    raise ValueError(f"{student_name} was not found")
+
 
 # FIXME: There is currently no subject id, so it is the name of the subject
-def get_top_performer(subject_id):
+def get_top_performer(subject_id: str):
     subject_test_max_scores: Dict[str, int] = {}
 
     for test in tests:
@@ -234,7 +246,7 @@ def get_top_performer(subject_id):
         print("There are no tests for {subject_id} currently", file=sys.stderr)
         return
 
-    student_totals = {}
+    student_totals: Dict[str, Tuple[int, int, int]] = {}
 
     # Currently if there are multiple students with the same total score,
     # the first student seen will be the top performer
@@ -242,8 +254,9 @@ def get_top_performer(subject_id):
 
     for student_score in student_scores:
         if (
-            test_max_score := subject_test_max_scores.get(student_score["test_id"])
-        ) is None:
+            subject_test_max_score := student_score["test_id"]
+            not in subject_test_max_scores
+        ):
             continue
 
         student_id = student_score["student_id"]
@@ -267,15 +280,19 @@ def get_top_performer(subject_id):
         if new_total[0] > student_totals[candidate][0]:
             candidate = student_id
 
-    return candidate
+    if candidate is None:
+        return
+
+    candidate_total = student_totals[candidate]
+    return (candidate, candidate_total[0] / candidate_total[1])
 
 
-def get_students_below_threshold(pass_percentage):
-    student_test_ratios = {}
+def get_students_below_threshold(pass_percentage: Union[int, float]) -> List[str]:
+    student_test_ratios: Dict[str, List[float]] = {}
 
     # Since we expect to see results for all tests, might as well
     # just iterate over all of the tests now instead of doing it lazily
-    test_max_scores = {}
+    test_max_scores: Dict[str, int] = {}
 
     for test in tests:
         test_max_scores[test["test_id"]] = test["max_score"]
@@ -290,7 +307,7 @@ def get_students_below_threshold(pass_percentage):
         else:
             student_test_ratios[student_id] = [test_ratio]
 
-    students_below_threshold = []
+    students_below_threshold: List[str] = []
 
     for student_id, test_ratios in student_test_ratios.items():
         # Only multiply by 100 once for efficiency
