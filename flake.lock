@@ -38,11 +38,11 @@
         "nixpkgs": "nixpkgs_2"
       },
       "locked": {
-        "lastModified": 1791208659,
-        "narHash": "sha256-c0b1vHZE46o97uOPvSJXDOrMNn2PNNfz93wYNNoWZsM=",
+        "lastModified": 1792439260,
+        "narHash": "sha256-aigWjNE3oXoNm1XzYrdlkhCcTV/m/JF7+C92uZ2Io5M=",
         "owner": "cachix",
         "repo": "nixpkgs-python",
-        "rev": "5821ac5267b0dc89e48705407206e3c88ee3e0ad",
+        "rev": "50c8ef5ec6c987de851942537855ca4878718845",
         "type": "github"
       },
       "original": {
