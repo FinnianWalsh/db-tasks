@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import Dict, List, Optional, Tuple, TypedDict, Union, cast
+from typing import Dict, List, Optional, Tuple, TypedDict, Union, cast, final
 from sys import stderr
 
 # stderr used for red text on idle
@@ -151,13 +151,34 @@ tests = cast(
     ],
 )
 
-TestResult = Tuple[str, int, int, str]
+# Subject name, score obtianed, total score
+TestResult = Tuple[str, int, int]
 
-StudentTranscript = Tuple[
-    Optional[str],
-    Optional[str],
-    List[TestResult],
-]
+
+@final
+class StudentTranscript:
+    def __init__(
+        self,
+        student_name: Optional[str],
+        tutor_group: Optional[str],
+        test_results: List[TestResult],
+    ):
+        self.student_name = student_name
+        self.tutor_group = tutor_group
+        self.test_results = test_results
+
+    def add_result(self, result: TestResult):
+        self.test_results.append(result)
+
+    def __str__(self) -> str:
+        newline = "\n"
+        mapped_results = map(
+            lambda result: (
+                f"{result[0]}: {result[1]}/{result[2]} ({result[1] / result[2] * 100:.1f}%)"
+            ),
+            self.test_results,
+        )
+        return f"{self.student_name} (tutor group {self.tutor_group}):\n{newline.join(mapped_results)}"
 
 
 def get_student_transcript(student_id: str) -> StudentTranscript:
@@ -194,11 +215,10 @@ def get_student_transcript(student_id: str) -> StudentTranscript:
                 test["subject_name"],
                 score_obtained,
                 max_score,
-                f"{score_obtained / max_score * 100:.1f}%",
             )
         )
 
-    return name, tutor_group, student_tests
+    return StudentTranscript(name, tutor_group, student_tests)
 
 
 def get_test_average(test_id: str) -> Optional[float]:
@@ -347,11 +367,11 @@ def get_students_below_threshold(pass_percentage: Union[int, float]) -> List[str
 if __name__ == "__main__":
     transcript = get_student_transcript(get_student_id_from_name("Alex Chen"))
 
-    print(f"Student transcript for Alex Chen:\n{transcript}\n", flush=False)
+    print(f"Student transcript for {transcript}\n", flush=False)
 
     print(f"Test average for T01: {get_test_average('T01'):.1f}\n", flush=False)
 
-    subject = "Mathematics"
+    subject = "Computer Science"
     top_performers = get_subject_top_performer(subject)
     assert top_performers, f"Expected top performers for {subject}"
 
