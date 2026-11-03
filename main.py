@@ -234,7 +234,6 @@ def get_student_id_from_name(student_name: str) -> str:
     raise ValueError(f"{student_name} was not found")
 
 
-# FIXME: There is currently no subject id, so it is the name of the subject
 def get_top_performer(subject_id: str):
     subject_test_max_scores: Dict[str, int] = {}
 
