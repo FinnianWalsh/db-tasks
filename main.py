@@ -1,7 +1,9 @@
-import sys
-
 from abc import ABC
 from typing import Dict, List, Optional, Tuple, TypedDict, Union, cast
+from sys import stderr
+
+# stderr used for red text on idle
+# since ansi escape codes are not supported
 
 
 class DbObject(ABC):
@@ -181,9 +183,7 @@ def get_student_transcript(student_id: str) -> StudentTranscript:
                 break
 
         else:
-            print(
-                f"test_id {test_id} does not exist in the tests table", file=sys.stderr
-            )
+            print(f"test_id {test_id} does not exist in the tests table", file=stderr)
             continue
 
         score_obtained = student_score["score_obtained"]
@@ -194,7 +194,7 @@ def get_student_transcript(student_id: str) -> StudentTranscript:
                 test["subject_name"],
                 score_obtained,
                 max_score,
-                f"{round(score_obtained / max_score * 100, 1)}%",
+                f"{score_obtained / max_score * 100:.1f}%",
             )
         )
 
@@ -210,7 +210,7 @@ def get_test_average(test_id: str) -> Optional[float]:
             max_score = test["max_score"]
             break
     else:
-        print("Test was not found in the test table", file=sys.stderr)
+        print("Test was not found in the test table", file=stderr)
         return
 
     for student_score in student_scores:
@@ -220,10 +220,10 @@ def get_test_average(test_id: str) -> Optional[float]:
 
     # No dividing by 0
     if num_taken == 0:
-        print("No students took this test", file=sys.stderr)
+        print("No students took this test", file=stderr)
         return
 
-    return round(total_score_obtained / num_taken / max_score * 100, 1)
+    return total_score_obtained / num_taken / max_score * 100
 
 
 def get_student_id_from_name(student_name: str) -> str:
@@ -234,7 +234,10 @@ def get_student_id_from_name(student_name: str) -> str:
     raise ValueError(f"{student_name} was not found")
 
 
-def get_top_performer(subject_id: str):
+# WARNING: this function may return an unfair result, as takes raw marks into account when comparing
+# and yet returns the highest overall percentage. Thus, it will not necessarily return the student
+# with the highest overall percentage
+def get_subject_top_performer(subject_id: str):
     subject_test_max_scores: Dict[str, int] = {}
 
     for test in tests:
@@ -242,55 +245,75 @@ def get_top_performer(subject_id: str):
             subject_test_max_scores[test["test_id"]] = test["max_score"]
 
     if len(subject_test_max_scores) == 0:
-        print("There are no tests for {subject_id} currently", file=sys.stderr)
+        print(f"There are no tests for {subject_id} currently", file=stderr)
         return
 
-    student_totals: Dict[str, Tuple[int, int, int]] = {}
+    # tuple consists of:
+    # the total score
+    # the sum of the "test ratios" (obtained/total)
+    # the number of tests taken
+    student_totals: Dict[str, Tuple[int, float, int]] = {}
 
-    # Currently if there are multiple students with the same total score,
-    # the first student seen will be the top performer
-    candidate: Optional[str] = None
+    # Use a list in case multiple people have the same score achieved in the subject
+    candidates: List[str] = []
 
     for student_score in student_scores:
-        if (
-            subject_test_max_score := student_score["test_id"]
-            not in subject_test_max_scores
-        ):
+        if (max_score := subject_test_max_scores.get(student_score["test_id"])) is None:
             continue
 
         student_id = student_score["student_id"]
         score_obtained = student_score["score_obtained"]
 
+        test_ratio = score_obtained / max_score
+
         if student_id in student_totals:
             current = student_totals[student_id]
-            new_total = (current[0] + score_obtained, current[1] + 1)
+            new_total = (
+                current[0] + score_obtained,
+                current[1] + test_ratio,
+                current[2] + 1,
+            )
         else:
-            new_total = (score_obtained, 1)
+            new_total = (score_obtained, test_ratio, 1)
 
         student_totals[student_id] = new_total
 
-        if candidate is None:
-            candidate = student_id
+        if len(candidates) == 0:
+            candidates.append(student_id)
             continue
 
-        if candidate == student_id:
+        if student_id in candidates:
             continue
 
-        if new_total[0] > student_totals[candidate][0]:
-            candidate = student_id
+        candidate_score = student_totals[candidates[0]][0]
+        given_score = new_total[0]
 
-    if candidate is None:
+        if given_score > candidate_score:
+            candidates.clear()
+            candidates.append(student_id)
+        elif given_score == candidate_score:
+            candidates.append(student_id)
+
+    if len(candidates) == 0:
+        # This path should not be reached
         return
 
-    candidate_total = student_totals[candidate]
-    return (candidate, candidate_total[0] / candidate_total[1])
+    # tuple stores: the student id and the overall percentage
+    top_performers: List[Tuple[str, float]] = []
+
+    for performer in candidates:
+        performer_totals = student_totals[performer]
+        top_performers.append(
+            (performer, performer_totals[1] / performer_totals[2] * 100)
+        )
+
+    return top_performers
 
 
 def get_students_below_threshold(pass_percentage: Union[int, float]) -> List[str]:
     student_test_ratios: Dict[str, List[float]] = {}
 
-    # Since we expect to see results for all tests, might as well
-    # just iterate over all of the tests now instead of doing it lazily
+    # We expect to see results for all tests
     test_max_scores: Dict[str, int] = {}
 
     for test in tests:
@@ -309,7 +332,6 @@ def get_students_below_threshold(pass_percentage: Union[int, float]) -> List[str
     students_below_threshold: List[str] = []
 
     for student_id, test_ratios in student_test_ratios.items():
-        # Only multiply by 100 once for efficiency
         avg_percentage = (sum(test_ratios) / len(test_ratios)) * 100
 
         if avg_percentage < pass_percentage:
@@ -318,12 +340,27 @@ def get_students_below_threshold(pass_percentage: Union[int, float]) -> List[str
     return students_below_threshold
 
 
-transcript = get_student_transcript(get_student_id_from_name("Alex Chen"))
+if __name__ == "__main__":
+    transcript = get_student_transcript(get_student_id_from_name("Alex Chen"))
 
-print(f"Student transcript for Alex Chen: {transcript}")
+    print(f"Student transcript for Alex Chen:\n{transcript}\n", flush=False)
 
-print(f"Test average for T01: {get_test_average('T01')}")
+    print(f"Test average for T01: {get_test_average('T01'):.1f}\n", flush=False)
 
-print(f"Top performer for Mathematics: {get_top_performer('Mathematics')}")
+    subject = "Mathematics"
+    top_performers = get_subject_top_performer(subject)
+    assert top_performers, f"Expected top performers for {subject}"
 
-print(f"Students below 80% threshold: {get_students_below_threshold(80)}")
+    plurality = "" if len(top_performers) == 1 else "s"
+
+    newline = "\n"
+    print(
+        f"Top performer{plurality} for {subject}:\n\
+{newline.join(f'{performer[0]} with overall percentage of {performer[1]:.1f}' for performer in top_performers)}\n",
+        flush=False,
+    )
+
+    threshold_p = 80
+    print(
+        f"Students below {threshold_p}% threshold: {get_students_below_threshold(threshold_p)}"
+    )
