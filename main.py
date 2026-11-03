@@ -1,4 +1,5 @@
 from abc import ABC
+from functools import lru_cache
 from typing import Dict, List, Optional, Tuple, TypedDict, Union, cast, final
 from sys import stderr
 
@@ -364,6 +365,25 @@ def get_students_below_threshold(pass_percentage: Union[int, float]) -> List[str
     return students_below_threshold
 
 
+@lru_cache
+def get_mapped_student_info() -> Dict[str, StudentDict]:
+    student_info: Dict[str, StudentDict] = {}
+
+    for entry in students:
+        student_info[entry["student_id"]] = entry
+
+    return student_info
+
+
+def display_students(student_ids: List[str]):
+    student_info = get_mapped_student_info()
+
+    for student_id in student_ids:
+        student_name = student_info[student_id]["student_name"]
+        tutor_group = student_info[student_id]["tutor_group"]
+        print(f"({student_id}) {student_name} of {tutor_group}", flush=False)
+
+
 if __name__ == "__main__":
     transcript = get_student_transcript(get_student_id_from_name("Alex Chen"))
 
@@ -385,6 +405,8 @@ if __name__ == "__main__":
     )
 
     threshold_p = 80
-    print(
-        f"Students below {threshold_p}% threshold: {get_students_below_threshold(threshold_p)}"
-    )
+    print(f"Students below {threshold_p}% threshold:")
+
+    display_students(get_students_below_threshold(threshold_p))
+
+    print(end="", flush=True)
