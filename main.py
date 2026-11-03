@@ -237,6 +237,10 @@ def get_student_id_from_name(student_name: str) -> str:
 # WARNING: this function may return an unfair result, as takes raw marks into account when comparing
 # and yet returns the highest overall percentage. Thus, it will not necessarily return the student
 # with the highest overall percentage
+#
+# Function specification:
+# Given a subject_id, return the student name and overall percentage score of the student
+# with the highest total points achieved across all tests in that subject.
 def get_subject_top_performer(subject_id: str):
     subject_test_max_scores: Dict[str, int] = {}
 
