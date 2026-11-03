@@ -245,6 +245,8 @@ def get_test_average(test_id: str) -> Optional[float]:
         print("No students took this test", file=stderr)
         return
 
+    # (total_score_obtained / num_taken) gets the class average score
+    # the class average score divided by the max score multiplied by 100 gets the class average percentage
     return total_score_obtained / num_taken / max_score * 100
 
 
