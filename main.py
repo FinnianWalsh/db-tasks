@@ -152,8 +152,8 @@ tests = cast(
     ],
 )
 
-# Subject name, score obtianed, total score
-TestResult = Tuple[str, int, int]
+# Subject name, test id, score obtianed, total score
+TestResult = Tuple[str, str, int, int]
 
 
 @final
@@ -175,7 +175,7 @@ class StudentTranscript:
         newline = "\n"
         mapped_results = map(
             lambda result: (
-                f"{result[0]}: {result[1]}/{result[2]} ({result[1] / result[2] * 100:.1f}%)"
+                f"{result[0]} {result[1]}: {result[2]}/{result[3]} ({result[2] / result[3] * 100:.1f}%)"
             ),
             self.test_results,
         )
@@ -214,6 +214,7 @@ def get_student_transcript(student_id: str) -> StudentTranscript:
         student_tests.append(
             (
                 test["subject_name"],
+                test_id,
                 score_obtained,
                 max_score,
             )
